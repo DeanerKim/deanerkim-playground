@@ -560,13 +560,27 @@ function openModal(idx){
   document.getElementById('playtime-total').style.display='none';
   loadLogs(g.name);
 
-  // 탭 초기화 & 오버레이 열기
+  // 탭 초기화 & 오버레이 열기 — reflow 강제로 애니메이션 재실행
   switchTabById('overview');
-  document.getElementById('overlay').classList.add('open');
+  const overlay=document.getElementById('overlay');
+  const modal=document.getElementById('modal');
+  overlay.classList.remove('open');
+  modal.style.animation='none';
+  // 한 프레임 대기 후 열기 (브라우저 reflow 보장)
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      modal.style.animation='';
+      overlay.classList.add('open');
+    });
+  });
 }
 
 function closeModal(){
-  document.getElementById('overlay').classList.remove('open');
+  const overlay=document.getElementById('overlay');
+  overlay.classList.remove('open');
+  // 모달 애니메이션 리셋 (다음 열릴 때 재생되도록)
+  const modal=document.getElementById('modal');
+  modal.style.animation='none';
   curGame=null;
 }
 function overlayClick(e){if(e.target.id==='overlay') closeModal();}
