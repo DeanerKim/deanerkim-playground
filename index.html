@@ -596,10 +596,10 @@ function openModal(idx){
   // 소개
   document.getElementById('m-desc').textContent=g.desc||'아직 소개가 등록되지 않았습니다.';
 
-  // YouTube — Sheets에서 로드된 값 직접 사용
-  const youtubeUrl=g.youtube||'';
-  document.getElementById('m-video-wrap').innerHTML=youtubeUrl
-    ?`<a class="video-btn" href="${youtubeUrl}" target="_blank">▶ 유튜브 룰 설명 보기</a>`:'';
+  // YouTube — video 필드 사용 (Apps Script에서 'video'로 반환)
+  const youtubeUrl = g.video || g.youtube || '';
+  document.getElementById('m-video-wrap').innerHTML = youtubeUrl
+    ? `<a class="video-btn" href="${youtubeUrl}" target="_blank">▶ 유튜브 룰 설명 보기</a>` : '';
   // 룰북
   document.getElementById('rb-current').style.display='none';
   document.getElementById('rb-input').value='';
