@@ -263,8 +263,14 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
     </div>
   </div>
 
-  <div class="grid" id="grid"></div>
+  <div class="grid" id="grid" style="opacity:0"></div>
   </div><!-- /view-collection -->
+
+  <!-- 페이지 로딩 -->
+  <div id="page-loading" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+    <div class="spinner" style="width:32px;height:32px;border-width:3px"></div>
+    <div style="font-size:14px;color:var(--text3)">게임 목록 불러오는 중...</div>
+  </div>
 
   <!-- 투표 뷰 -->
   <div id="view-vote" style="display:none">
@@ -387,78 +393,22 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbxxDK0QxgghNep21RsAcUVYqWn72pb9Ys6pZzdC3C4Q0pmM44wh70fTTvB9Nmlkvt8q/exec';
 
-// BGG 썸네일: https://cf.geekdo-images.com/[imageId]/pic[imageId].jpg 형식으로 직접 로드
-// bggImg: BGG 이미지 직접 URL (BGG ID 페이지에서 확인한 썸네일)
-const GAMES = [
-  {n:1,name:'세 번째 이야기',players:'2~6',diff:1.65,rec:false,solo:false,video:'https://www.youtube.com/watch?v=gszZ9tne4y8',desc:'동화 기반 캐릭터들을 모아서 각 카드가 가진 시너지 효과로 점수를 벌어 승부하는 게임',bggId:''},
-  {n:2,name:'별의 소원',players:'2~4',diff:2.2,rec:false,solo:false,video:'https://www.youtube.com/watch?v=qpJrfdPcfec',desc:'사람이 되고 싶은 별이 되어 인간의 감정을 모두 수집하면 이기는 게임. 게임 룰에 따라 들고 있는 카드로 승부해서 감정을 수집하는 과정을 반복 / 전략 대결',bggId:''},
-  {n:3,name:'아줄 대결',players:'2',diff:2.37,rec:true,solo:false,video:'https://www.youtube.com/watch?v=c3AyQ0GvAdw',desc:'상대가 선택할 행동을 예측하여 턴마다 내 행동을 선택 → 내 보드판을 잘 꾸며 점수로 대결',bggId:'390988'},
-  {n:4,name:'용스팬',players:'1~5',diff:2.81,rec:true,solo:true,video:'https://www.youtube.com/live/LmlnkBNL7sk',desc:'나만의 용 둥지를 만들고 그 안에 용들을 입주시킴. 용들이 가진 효과를 기반으로 연계 시너지를 노리고 더 많은 재화를 얻는 것이 목표',bggId:'410201'},
-  {n:5,name:'듄 봉기',players:'1~6',diff:3.5,rec:false,solo:true,video:'https://www.youtube.com/watch?v=ke19dIr3geM',desc:'듄에 나오는 가문을 선택하고 각 가문의 특성에 맞게 카드를 뽑아 연계 효과를 만듦. 전략에 따라 재화 수급 위주 플레이, 전투 위주 플레이 가능',bggId:'397598'},
-  {n:6,name:'셀레스티아',players:'2~6',diff:1.32,rec:true,solo:false,video:'https://youtu.be/Gv449Uv72nc',desc:'플레이어들이 비행정을 타고 각 섬을 여행하는 컨셉. 선장을 번갈아가며 진행. 선원들은 눈치를 잘 보고 적절한 시점에 내려서 보상을 차지해야 함',bggId:'151347'},
-  {n:7,name:'하모니즈',players:'1~4',diff:2.01,rec:true,solo:true,video:'https://www.youtube.com/watch?v=AnXe6xhqEkw',desc:'보드판 위에 자연환경을 만들고 그 환경에서 살 수 있는 동물들을 입주시키는 게임. 얼마나 예쁘게 자연환경을 구성하고 다양한 동물을 입주시켰는지에 따라 점수 획득',bggId:'398552'},
-  {n:8,name:'카르카손',players:'2~5',diff:1.89,rec:true,solo:false,video:'https://www.youtube.com/watch?v=BPXDhcYqngE',desc:'손에 들고 있는 지도 타일을 기존 지도에 연결되게 계속 놓으며, 완성된 지형을 선점하여 점수를 얻는 게임',bggId:'822'},
-  {n:9,name:'배틀그라운드',players:'1~6',diff:2.82,rec:true,solo:true,video:'https://www.youtube.com/watch?v=4euNuCzg-2c',desc:'뽑기를 통해 낙하 위치, 자기장 위치 등을 정하고 순서 카드에 따라 파밍/공격/아이템 사용 등을 하며 최후의 1인이 살아남을 때까지 진행하는 보드게임',bggId:'276182'},
-  {n:10,name:'루미큐브',players:'1~4',diff:1.71,rec:false,solo:false,video:'https://www.youtube.com/watch?v=gS5xUMDpX3k',desc:'내 보드에 있는 숫자 타일들을 규칙에 맞게 조합하여 공용 칸에 내려놓는 게임. 먼저 내 보드의 모든 숫자를 내려놓는 사람이 이김',bggId:'931'},
-  {n:11,name:'WoW: 리치왕의 분노',players:'1~5',diff:2.29,rec:false,solo:true,video:'https://www.youtube.com/watch?v=g1cF5BR5kBg',desc:'워크래프트 IP 기반 게임. 영웅을 고르고 각 근거지에서 게임을 시작. 턴마다 언데드 종족이 퍼져나가며 플레이어는 퀘스트와 아이템으로 성장해 리치왕을 물리치는 것이 목표',bggId:'355483'},
-  {n:12,name:'스몰월드 오브 워크래프트',players:'2~5',diff:2.69,rec:false,solo:false,video:'https://www.youtube.com/watch?v=cQHGp8_jYMc',desc:'플레이할 종족을 선택하고 고유 능력과 특수능력을 적절히 사용하여 더 많은 지역을 점령해 승점 토큰을 획득. 최종적으로 승점 토큰이 많은 플레이어가 승리',bggId:'299537'},
-  {n:13,name:'브루마블',players:'2~4',diff:1.5,rec:false,solo:false,video:'',desc:'일반 부루마블에 요기요 테마를 씌운 게임',bggId:''},
-  {n:14,name:'플레임크래프트',players:'1~5',diff:2.18,rec:false,solo:true,video:'https://www.youtube.com/watch?v=uofGarylfX8',desc:'함께 드래곤 마을을 만들어 가는 과정에서 드래곤 상점과 교류하며 점수를 얻는 게임',bggId:'336986'},
-  {n:15,name:'임페리얼 스팀',players:'2~4',diff:4.21,rec:false,solo:false,video:'https://www.youtube.com/watch?v=RKTmGf7aV5Q',desc:'난이도가 매우 높은 고급 전략 보드게임',bggId:'326922'},
-  {n:16,name:'스플렌더 마블',players:'2~4',diff:1.78,rec:true,solo:false,video:'https://www.youtube.com/watch?v=xoS4JEGOap0',desc:'인피니티 스톤을 재화로 해서 마블 캐릭터들을 모아 인피니티 건틀릿을 쟁취하는 것이 목표. 가장 높은 점수를 얻은 사람이 승리',bggId:'320386'},
-  {n:17,name:'윙스팬',players:'1~5',diff:2.48,rec:false,solo:true,video:'https://www.youtube.com/live/LmlnkBNL7sk',desc:'나만의 새 둥지를 만들고 그 안에 새들을 입주시킴. 새들이 가진 효과를 기반으로 연계 시너지를 노리고 더 많은 재화를 얻는 것이 목표',bggId:'266192'},
-  {n:18,name:'딕싯 디즈니',players:'4~6',diff:1.19,rec:true,solo:false,video:'https://www.youtube.com/watch?v=SWvzmI2jts8',desc:'카드를 뽑아서 이야기꾼이 특정 주제를 지정하면서 카드를 내려놓음. 다른 플레이어들은 이야기꾼의 주제와 가장 비슷할 것이라고 생각하는 카드를 함께 내려놓고 투표 진행',bggId:'39856'},
-  {n:19,name:'쿼리도 팩맨',players:'2',diff:1.82,rec:true,solo:false,video:'https://www.youtube.com/watch?v=yO-uzwN6oaI',desc:'상대 말의 전진을 방해하는 벽을 쌓거나 앞으로 전진하거나의 선택을 반복하면서 반대편까지 내 말을 보내는 게임',bggId:'624'},
-  {n:20,name:'냥벽한공간',players:'2~4',diff:1.0,rec:false,solo:false,video:'https://youtu.be/xs1oHSMXei4',desc:'심플한 고양이 테마 카드 게임',bggId:''},
-  {n:21,name:'테인티드 그레일 Fall of Avalon',players:'1~4',diff:3.36,rec:false,solo:true,video:'https://youtu.be/a5ASjoLD_j4',desc:'북유럽 신화 세계관에서 RPG 형태로 Episode를 진행하며 스토리를 해금하는 게임',bggId:'276655'},
-  {n:22,name:'테인티드 그레일 Kings of Ruin',players:'1~4',diff:3.36,rec:false,solo:true,video:'',desc:'Fall of Avalon과 동일한 방식 (영문판)',bggId:'367311'},
-  {n:23,name:'챠오챠오',players:'2~4',diff:1.09,rec:false,solo:false,video:'https://youtu.be/ZHoLj040vtg',desc:'파티 게임. 내가 굴린 주사위를 상대에게 블러핑하거나 솔직하게 말할 수 있음. 챌린지 진위 여부에 따라 말을 앞으로 보내거나 떨어뜨리며 가장 먼저 결승점을 통과한 사람이 승리',bggId:'2362'},
-  {n:24,name:'7원더스',players:'2~7',diff:2.31,rec:false,solo:false,video:'https://youtu.be/HBUMGsAP4Gc',desc:'시대별 카드 더미를 분배한 뒤 드래프트하여 카드 액션을 진행. 이 과정을 통해 자원 생산력, 전투력, 연구 등을 발전시켜 문명을 강하게 만드는 것이 목표',bggId:'68448'},
-  {n:25,name:'라스베가스',players:'2~5',diff:1.17,rec:false,solo:false,video:'https://youtu.be/Bt2escpWj8Q',desc:'Push Your Luck 방식 게임. 주사위를 굴린 뒤 나온 눈에 따라 금액에 배팅을 하는 게임',bggId:'117959'},
-  {n:26,name:'메이지나이트',players:'1~4',diff:4.37,rec:true,solo:true,video:'https://youtu.be/TPthcatH9XQ',desc:'덱빌딩과 RPG 요소가 절묘하게 버무려진 게임. 잔룰이 많아서 반드시 룰마스터가 필요하지만 한 번 배우고 나면 혼자서 즐기기 좋음. 솔로 플레이가 가장 재미있는 게임',bggId:'96848'},
-  {n:27,name:'신들의 정원',players:'2~4',diff:2.26,rec:false,solo:false,video:'https://youtu.be/2Oc47PbZwsc',desc:'신들의 정원을 아름답게 꾸미는 타일 배치 전략 게임',bggId:''},
-  {n:28,name:'반지의 제왕: 원정대의 운명',players:'1~5',diff:2.97,rec:true,solo:true,video:'https://youtu.be/5gHRjxw739s',desc:'반지의 제왕 세계관을 배경으로 한 협력 보드게임',bggId:'414103'},
-  {n:29,name:'텔레스트레이션',players:'4~12',diff:1.06,rec:true,solo:false,video:'https://youtu.be/Puc_1XyP-30',desc:'그림으로 전달하는 전화놀이 게임. 단어를 그림으로 그리고 그림을 보고 단어를 유추하는 과정을 반복',bggId:'46213'},
-  {n:30,name:'리그오브레전드: 메크 vs 미니언',players:'2~4',diff:2.46,rec:false,solo:false,video:'https://youtu.be/hr2vgmO1_og',desc:'리그 오브 레전드 IP 기반의 협력 보드게임',bggId:'209010'},
-  {n:31,name:'푸에르토리코',players:'3~5',diff:3.27,rec:true,solo:false,video:'https://youtu.be/KCfUVS8h5TE',desc:'역할 선택 메커니즘을 기반으로 농장을 운영하고 상품을 생산 및 운송하여 승점을 얻는 고전 전략 게임',bggId:'3076'},
-  {n:32,name:'레지사이드',players:'1~4',diff:1.96,rec:false,solo:true,video:'https://youtu.be/CZHiSzNso0w',desc:'일반 트럼프 카드로 플레이하는 협력 카드 게임. 잭, 퀸, 킹을 순서대로 물리치는 것이 목표',bggId:'307002'},
-  {n:33,name:'프로스트헤이븐',players:'1~4',diff:4.4,rec:false,solo:true,video:'https://youtu.be/Wck7YRZ77Xk',desc:'글룸헤이븐의 후속작. 매우 높은 난이도의 캠페인 던전 크롤러 게임',bggId:'295770'},
-  {n:34,name:'반지의 제왕: 가운데땅에서의 대결',players:'2',diff:2.06,rec:true,solo:false,video:'https://youtu.be/ARcXbtaMQog',desc:'반지의 제왕 세계관을 배경으로 한 2인용 전략 게임',bggId:'115746'},
-  {n:35,name:'투매니본즈',players:'1~4',diff:3.86,rec:true,solo:true,video:'https://youtu.be/avG8tu020RE',desc:'독특한 주사위 빌딩 메커니즘을 가진 협력 RPG 보드게임. 각 캐릭터만의 특수 주사위로 전투',bggId:'192135'},
-  {n:36,name:'루우트',players:'2~4',diff:2.09,rec:false,solo:false,video:'https://youtu.be/5RwxZsL4-wA',desc:'비대칭 세력을 이용해 숲의 지배권을 다투는 전략 게임. 각 세력마다 완전히 다른 승리 조건과 플레이 방식',bggId:'237182'},
-  {n:37,name:'스위트랜드',players:'1~4',diff:4.05,rec:true,solo:true,video:'https://youtu.be/Ap1n5dknEFs',desc:'달콤한 세계관을 배경으로 한 높은 난이도의 전략 보드게임',bggId:''},
-  {n:38,name:'힛스터',players:'2~10',diff:1.01,rec:true,solo:false,video:'https://youtu.be/75_0iU1cFaA',desc:'음악 퀴즈 파티 게임. 노래를 듣고 제목과 가수를 맞추는 파티 게임',bggId:'336933'},
-  {n:39,name:'힛스터 K-Pop',players:'',diff:0,rec:false,solo:false,video:'',desc:'힛스터의 K-Pop 버전 확장팩',bggId:''},
-  {n:40,name:'노 터치 크라켄',players:'4~6',diff:1.15,rec:true,solo:false,video:'https://youtu.be/ckd5Au7lryE',desc:'손을 놓지 않고 팀워크로 미션을 수행하는 협동 파티 게임',bggId:''},
-  {n:41,name:'스페이스크루',players:'2~5',diff:1.96,rec:true,solo:false,video:'https://youtu.be/V8BDvlAj_GY',desc:'우주를 배경으로 한 협동 트릭 테이킹 카드 게임. 미션을 완수하기 위해 팀원들과 소통하며 진행',bggId:'284083'},
-  {n:42,name:'딥씨크루',players:'',diff:0,rec:false,solo:false,video:'',desc:'스페이스크루의 심해 버전',bggId:'324856'},
-  {n:43,name:'나혼자만레벨업',players:'1~4',diff:0,rec:true,solo:true,video:'https://youtu.be/sQg-AePw-G0',desc:'나혼자만레벨업 IP를 기반으로 한 보드게임',bggId:''},
-  {n:44,name:'정령섬',players:'1~6',diff:4.08,rec:true,solo:true,video:'https://youtu.be/OKYJ6VcFVxo',desc:'섬을 지키는 정령이 되어 침략자들을 물리치는 협력 게임. 각 정령마다 고유한 능력과 성장 방식을 가짐',bggId:'162886'},
-  {n:45,name:'원드러스 크리처',players:'1~4',diff:3.05,rec:true,solo:true,video:'https://youtu.be/pHxSvuq1DEo',desc:'신비로운 생명체를 수집하고 관리하는 전략 보드게임',bggId:'395604'},
-  {n:46,name:'에메랄드 스컬',players:'1~6',diff:1.92,rec:true,solo:true,video:'https://youtu.be/K5UBJaIFRr8',desc:'해적을 테마로 한 Push Your Luck 주사위 게임. 적절한 시점에 멈추는 것이 핵심',bggId:''},
-  {n:47,name:'반지의 제왕: 트릭테이킹',players:'1~4',diff:1.95,rec:false,solo:true,video:'https://youtu.be/I1v8dBrJrOw',desc:'반지의 제왕 세계관을 배경으로 한 트릭 테이킹 협력 카드 게임',bggId:'375151'},
-  {n:48,name:'킵 더 히어로즈 아웃',players:'',diff:0,rec:true,solo:false,video:'',desc:'보스 배틀 확장 포함 버전',bggId:'315767'},
-  {n:49,name:'차가운 그녀가 눈을 뜨기 전에',players:'',diff:0,rec:false,solo:false,video:'',desc:'',bggId:''},
-  {n:50,name:'슬리핑 갓즈',players:'',diff:0,rec:false,solo:true,video:'',desc:'',bggId:'255504'},
-  {n:51,name:'세티',players:'',diff:0,rec:false,solo:false,video:'',desc:'',bggId:'418059'},
-  {n:52,name:'트리스메기스투스',players:'',diff:0,rec:false,solo:false,video:'',desc:'',bggId:'281442'},
-  {n:53,name:'엘더스크롤: 두 번째 시대의 배신',players:'',diff:0,rec:false,solo:false,video:'',desc:'해외판 펀딩 참여중',bggId:''},
-  {n:54,name:'프라이멀',players:'',diff:0,rec:false,solo:false,video:'',desc:'국내판 펀딩 참여중',bggId:''},
-  {n:55,name:'루티어',players:'',diff:0,rec:false,solo:false,video:'',desc:'',bggId:''},
-  {n:56,name:'아크노바',players:'',diff:0,rec:false,solo:true,video:'',desc:'',bggId:'342942'},
-];
 
-// 이모지 매핑
+// ── 전역 상태 ─────────────────────────────────────────────────
+let GAMES = []; // Sheets에서 로드됨 (하드코딩 제거)
+const thumbCache = {};
+
+// ── 이모지 매핑 ───────────────────────────────────────────────
 function emoji(g){
-  const t=g.name;
-  if(t.includes('용')||t.includes('드래곤')||t.includes('flame')||t.includes('Flame')) return '🐉';
-  if(t.includes('새')||t.includes('윙스팬')||t.includes('하모니')) return '🦜';
+  const t = g.name || '';
+  if(t.includes('용')||t.includes('플레임')||t.includes('드래곤')) return '🐉';
+  if(t.includes('윙스팬')||t.includes('하모니')) return '🦜';
   if(t.includes('별')||t.includes('우주')||t.includes('스페이스')||t.includes('셀레스')) return '🌟';
   if(t.includes('반지')||t.includes('그레일')||t.includes('원정대')) return '💍';
   if(t.includes('해적')||t.includes('크라켄')||t.includes('딥씨')||t.includes('에메랄드')) return '🏴‍☠️';
   if(t.includes('힛스터')) return '🎵';
   if(t.includes('카르카')) return '🗺️';
-  if(t.includes('정령')||t.includes('하모니')) return '🌿';
+  if(t.includes('정령')) return '🌿';
   if(t.includes('배틀')||t.includes('워크래프트')||t.includes('투매니')) return '⚔️';
   if(t.includes('루미큐브')) return '🔢';
   if(t.includes('딕싯')||t.includes('텔레스트')) return '🎨';
@@ -468,117 +418,137 @@ function emoji(g){
   if(t.includes('루우트')) return '🦊';
   if(t.includes('7원더스')) return '🏛️';
   if(t.includes('아크노바')) return '🦒';
-  if(t.includes('정령섬')) return '🌿';
   if(t.includes('레벨업')) return '⚡';
+  if(t.includes('푸에르토')) return '🏝️';
+  if(t.includes('챠오')) return '🎯';
+  if(t.includes('냥')) return '🐱';
   return '🎲';
 }
 
 function diffInfo(d){
   if(!d||d===0) return {label:'?',cls:''};
-  if(d<2) return {label:d.toFixed(2),cls:'d-easy'};
-  if(d<3) return {label:d.toFixed(2),cls:'d-med'};
-  if(d<4) return {label:d.toFixed(2),cls:'d-hard'};
-  return {label:d.toFixed(2),cls:'d-vhard'};
+  if(d<2) return {label:Number(d).toFixed(2),cls:'d-easy'};
+  if(d<3) return {label:Number(d).toFixed(2),cls:'d-med'};
+  if(d<4) return {label:Number(d).toFixed(2),cls:'d-hard'};
+  return {label:Number(d).toFixed(2),cls:'d-vhard'};
 }
-
-const thumbCache = {};
 
 function injectThumb(gameName, url){
   if(!url) return;
-  thumbCache[gameName]=url;
-  const game=GAMES.find(g=>g.name===gameName);
+  thumbCache[gameName] = url;
+  const game = GAMES.find(g => g.name === gameName);
   if(!game) return;
-  const thumbEl=document.getElementById('th-'+game.n);
-  const emoEl=document.getElementById('te-'+game.n);
-  const spinner=document.getElementById('tl-'+game.n);
-  if(!thumbEl||thumbEl.querySelector('img')) return;
+  const thumbEl = document.getElementById('th-'+game.n);
+  const emoEl   = document.getElementById('te-'+game.n);
+  const spinner  = document.getElementById('tl-'+game.n);
+  if(!thumbEl || thumbEl.querySelector('img')) return;
   if(spinner) spinner.style.display='none';
-  const img=document.createElement('img');
-  img.src=url; img.alt=gameName;
-  img.onload=()=>{
+  const img = document.createElement('img');
+  img.src = url; img.alt = gameName;
+  img.onload = () => {
     if(emoEl) emoEl.style.display='none';
-    const t=document.getElementById('th-'+game.n);
-    if(t&&!t.querySelector('img')){ img.classList.add('loaded'); t.insertBefore(img,t.firstChild); }
+    const t = document.getElementById('th-'+game.n);
+    if(t && !t.querySelector('img')){ img.classList.add('loaded'); t.insertBefore(img, t.firstChild); }
   };
-  img.onerror=()=>{ if(spinner) spinner.style.display='none'; };
+  img.onerror = () => { if(spinner) spinner.style.display='none'; };
 }
 
-// 상태
+// ── Sheets에서 전체 게임 목록 로드 (단일 진실의 원천) ──────────
+async function loadAllGames(){
+  showPageLoading(true);
+  try{
+    const res  = await fetch(`${API}?action=getGameList`);
+    const data = await res.json();
+    if(!data.games || !data.games.length){
+      showPageLoading(false);
+      document.getElementById('grid').innerHTML='<div class="no-results">시트에 게임 데이터가 없습니다.<br>게임데이터 시트를 확인해주세요.</div>';
+      return;
+    }
+    GAMES = data.games;
+
+    // 헤더 카운트 업데이트
+    document.getElementById('total-n').textContent = GAMES.length;
+    const recCount = GAMES.filter(g => g.rec).length;
+    document.getElementById('rec-n').textContent = recCount;
+
+    showPageLoading(false);
+    applyFilter();
+
+    // 이미지 주입
+    GAMES.forEach(g => { if(g.img) injectThumb(g.name, g.img); });
+
+  }catch(e){
+    showPageLoading(false);
+    console.error('게임 목록 로드 실패:', e);
+    document.getElementById('grid').innerHTML='<div class="no-results">데이터를 불러오지 못했습니다. 새로고침해주세요.</div>';
+  }
+}
+
+function showPageLoading(show){
+  const el = document.getElementById('page-loading');
+  if(el) el.style.display = show ? 'flex' : 'none';
+  const grid = document.getElementById('grid');
+  if(grid) grid.style.opacity = show ? '0' : '1';
+}
+
+// 게임의 실제 추천 상태 (Sheets에서 로드된 값 사용)
+function isRecGame(g){ return g.rec === true; }
+
+
+
+// ── 상태 ────────────────────────────────────────────────────
 let curFilter='all';
 let curGame=null;
 const qaHistory={};
-let gameDataCache={}; // BGG 이미지+weight+인원 캐시 (Sheets에서 로드)
+// (gameDataCache 제거 — GAMES 배열이 단일 원천)
 
-// Sheets에서 게임 데이터 로드 → 완료 후 그리드 재렌더링 (추천 상태 반영)
-async function loadGameData(){
-  try{
-    const res=await fetch(`${API}?action=getGameData`);
-    const data=await res.json();
-    gameDataCache=data.games||{};
-    // 로드 완료 후 그리드 재렌더 (추천 상태 + 이미지 반영)
-    applyFilter();
-    // 헤더 추천 카운트 업데이트
-    const recCount=GAMES.filter(g=>isRecGame(g)).length;
-    document.getElementById('rec-n').textContent=recCount;
-  }catch(e){ console.log('게임 데이터 로드 실패:', e); }
-}
-
-// 게임의 실제 추천 상태 (Sheets 우선, 없으면 하드코딩)
-function isRecGame(g){
-  const d=gameDataCache[g.name];
-  return d&&d.rec!==undefined ? d.rec : g.rec;
-}
+// ── 상태 ────────────────────────────────────────────────────
+let curFilter='all';
+let curGame=null;
+const qaHistory={};
 
 // 렌더 그리드
 function renderGrid(list){
   const g=document.getElementById('grid');
   if(!list.length){g.innerHTML='<div class="no-results">검색 결과가 없습니다 😢</div>';return;}
   g.innerHTML=list.map(game=>{
-    const d=diffInfo(game.diff);
+    const d=diffInfo(game.weight||0);
     const em=emoji(game);
-    const rec=isRecGame(game);
-    const theme=gameDataCache[game.name]?.theme||'';
+    const players=game.minP&&game.maxP?(game.minP===game.maxP?game.minP+'인':game.minP+'~'+game.maxP+'인'):'';
     return `<div class="card" onclick="openModal(${game.n-1})">
       <div class="thumb" id="th-${game.n}">
         <div class="thumb-num">${game.n}</div>
-        <div class="loading-thumb" id="tl-${game.n}"><div class="spinner"></div></div>
         <span class="thumb-emoji" id="te-${game.n}">${em}</span>
-        ${rec?'<div class="star-badge">추천</div>':''}
+        ${game.rec?'<div class="star-badge">추천</div>':''}
       </div>
       <div class="card-body">
         <div class="card-name">${game.name}</div>
-        ${theme?`<div class="card-theme">🏷 ${theme}</div>`:''}
+        ${game.theme?`<div class="card-theme">🏷 ${game.theme}</div>`:''}
         <div class="card-foot">
-          <span class="card-players">${game.players||'?'}인</span>
-          ${game.diff?`<span class="diff-badge ${d.cls}">${d.label}</span>`:''}
+          <span class="card-players">${players||'?인'}</span>
+          ${game.weight?`<span class="diff-badge ${d.cls}">${d.label}</span>`:''}
         </div>
       </div>
     </div>`;
   }).join('');
-
-  // 이미 캐시된 이미지 주입, 없으면 스피너 숨김
-  list.forEach(game=>{
-    const cached=gameDataCache[game.name]?.img||thumbCache[game.name]||'';
-    const spinner=document.getElementById('tl-'+game.n);
-    if(cached){ injectThumb(game.name, cached); }
-    else { if(spinner) spinner.style.display='none'; }
-  });
+  list.forEach(game=>{ if(game.img) injectThumb(game.name, game.img); });
 }
 
 function applyFilter(){
+  if(!GAMES.length) return;
   const q=document.getElementById('search').value.toLowerCase();
   const sort=document.getElementById('sort-sel').value;
   let list=GAMES.filter(g=>{
-    if(curFilter==='rec'&&!isRecGame(g)) return false;
-    if(curFilter==='easy'&&(g.diff===0||g.diff>=2)) return false;
-    if(curFilter==='hard'&&(g.diff===0||g.diff<3)) return false;
-    if(curFilter==='solo'&&!g.solo) return false;
+    if(curFilter==='rec'  && !g.rec)  return false;
+    if(curFilter==='easy' && (!g.weight||g.weight>=2)) return false;
+    if(curFilter==='hard' && (!g.weight||g.weight<3))  return false;
+    if(curFilter==='solo' && !g.solo) return false;
     if(q&&!g.name.toLowerCase().includes(q)&&!(g.desc||'').toLowerCase().includes(q)) return false;
     return true;
   });
-  if(sort==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-  else if(sort==='diff-asc') list.sort((a,b)=>(a.diff||99)-(b.diff||99));
-  else if(sort==='diff-desc') list.sort((a,b)=>(b.diff||0)-(a.diff||0));
+  if(sort==='name')           list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  else if(sort==='diff-asc')  list.sort((a,b)=>(a.weight||99)-(b.weight||99));
+  else if(sort==='diff-desc') list.sort((a,b)=>(b.weight||0)-(a.weight||0));
   renderGrid(list);
 }
 
@@ -597,10 +567,9 @@ function openModal(idx){
   // 제목
   document.getElementById('m-title').textContent=g.name;
 
-  // 모달 커버 이미지 — 캐시에서 즉시 표시
+  // 모달 커버 이미지 — g.img 직접 사용
   const coverEl=document.getElementById('m-cover');
-  const bggData=gameDataCache[g.name]||{};
-  const imgUrl=bggData.img||thumbCache[g.name]||'';
+  const imgUrl=g.img||thumbCache[g.name]||'';
   coverEl.innerHTML='';
   if(imgUrl){
     const img=document.createElement('img');
@@ -611,19 +580,15 @@ function openModal(idx){
     coverEl.innerHTML=`<span style="font-size:28px">${emoji(g)}</span>`;
   }
 
-  // 배지 — Sheets 데이터 우선
-  const minP=bggData.minP||''; const maxP=bggData.maxP||'';
-  const players=minP&&maxP ? (minP===maxP?minP+'인':minP+'~'+maxP+'인') : (g.players?g.players+'인':'');
-  const weight=bggData.weight||g.diff||'';
-  const time=bggData.time||'';
-  const score=bggData.score||'';
-  const theme=bggData.theme||'';
-  const isRec = bggData.rec !== undefined ? bggData.rec : g.rec;
+  // 배지 — Sheets에서 로드된 g 객체 직접 사용
+  const minP=g.minP||''; const maxP=g.maxP||'';
+  const players=minP&&maxP ? (minP===maxP?minP+'인':minP+'~'+maxP+'인') : '';
+  const weight=g.weight||'';
+  const theme=g.theme||'';
+  const isRec=g.rec===true;
   document.getElementById('m-badges').innerHTML=`
     ${players?`<span class="mbadge">👥 ${players}</span>`:''}
-    ${weight?`<span class="mbadge">난이도 ${parseFloat(weight).toFixed(2)}</span>`:''}
-    ${time?`<span class="mbadge">⏱ ${time}분</span>`:''}
-    ${score?`<span class="mbadge">BGG ${score}</span>`:''}
+    ${weight?`<span class="mbadge">난이도 ${Number(weight).toFixed(2)}</span>`:''}
     ${theme?`<span class="mbadge">🏷 ${theme}</span>`:''}
     ${g.solo?'<span class="mbadge">솔로 가능</span>':''}
   `;
@@ -635,14 +600,12 @@ function openModal(idx){
   recBtn.dataset.rec=isRec?'true':'false';
 
   // 소개
-  const sheetDesc=bggData.desc||'';
-  document.getElementById('m-desc').textContent=sheetDesc||g.desc||'아직 소개가 등록되지 않았습니다.';
+  document.getElementById('m-desc').textContent=g.desc||'아직 소개가 등록되지 않았습니다.';
 
-  // YouTube — Sheets 우선, 없으면 하드코딩
-  const youtubeUrl=bggData.youtube||g.video||'';
+  // YouTube — Sheets에서 로드된 값 직접 사용
+  const youtubeUrl=g.youtube||'';
   document.getElementById('m-video-wrap').innerHTML=youtubeUrl
     ?`<a class="video-btn" href="${youtubeUrl}" target="_blank">▶ 유튜브 룰 설명 보기</a>`:'';
-
   // 룰북
   document.getElementById('rb-current').style.display='none';
   document.getElementById('rb-input').value='';
@@ -775,16 +738,21 @@ async function handleImageUpload(input){
     });
     const data=await res.json();
     if(data.ok){
-      // Drive URL로 캐시 업데이트
-      gameDataCache[curGame.name]=gameDataCache[curGame.name]||{};
-      gameDataCache[curGame.name].img=data.url;
-      thumbCache[curGame.name]=data.url;
-      // 그리드 카드 이미지도 업데이트
+      // GAMES 배열 직접 업데이트
+      const gameInList = GAMES.find(g => g.name === curGame.name);
+      if(gameInList) gameInList.img = data.url;
+      thumbCache[curGame.name] = data.url;
+      // 그리드 카드 이미지 업데이트
       injectThumb(curGame.name, data.url);
+      // 모달 커버 이미지 업데이트
+      const coverEl = document.getElementById('m-cover');
+      coverEl.innerHTML = '';
+      const img2 = document.createElement('img');
+      img2.src = data.url; img2.alt = curGame.name;
+      coverEl.appendChild(img2);
       statusEl.textContent='✓ 저장 완료!';
       statusEl.style.color='#6ec485';
       showToast('이미지가 저장됐어요','ok');
-      // input 초기화
       input.value='';
     } else {
       statusEl.textContent='⚠ 저장 실패: '+( data.error||'');
@@ -808,27 +776,13 @@ async function toggleRec(){
   recBtn.classList.toggle('on',newRec);
   recBtn.dataset.rec=newRec?'true':'false';
 
-  // 캐시 업데이트
-  if(!gameDataCache[curGame.name]) gameDataCache[curGame.name]={};
-  gameDataCache[curGame.name].rec=newRec;
-  curGame.rec=newRec;
-
-  // 그리드 카드 배지 업데이트
-  const th=document.getElementById('th-'+curGame.n);
-  if(th){
-    const existing=th.querySelector('.star-badge');
-    if(newRec&&!existing){
-      const b=document.createElement('div');
-      b.className='star-badge'; b.textContent='추천'; th.appendChild(b);
-    } else if(!newRec&&existing){ existing.remove(); }
-  }
+  // GAMES 배열 직접 업데이트 (단일 원천)
+  curGame.rec = newRec;
+  const gameInList = GAMES.find(g => g.name === curGame.name);
+  if (gameInList) gameInList.rec = newRec;
 
   // 헤더 추천 카운트
-  const recCount=GAMES.filter(g=>{
-    const d=gameDataCache[g.name];
-    return d&&d.rec!==undefined ? d.rec : g.rec;
-  }).length;
-  document.getElementById('rec-n').textContent=recCount;
+  document.getElementById('rec-n').textContent = GAMES.filter(g => g.rec).length;
 
   // Sheets 저장
   try{
@@ -1032,7 +986,7 @@ function renderVoteBoard(){
     const game=GAMES.find(g=>g.name===name);
     const cnt=totals[name]||0;
     const pct=Math.round((cnt/maxVotes)*100);
-    const imgUrl=gameDataCache[name]?.img||thumbCache[name]||'';
+    const imgUrl=game?.img||thumbCache[name]||'';
     const voted=myVotes.includes(name);
     // 투표자 이름 목록
     const voterList=Object.entries(votes).filter(([,arr])=>arr.includes(name)).map(([v])=>v).join(', ');
@@ -1136,12 +1090,9 @@ function showToast(msg,type=''){
   toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
 }
 
-// 초기화
-document.getElementById('rec-n').textContent=GAMES.filter(g=>g.rec).length;
-applyFilter();
-
-// Sheets에서 BGG 데이터(이미지+weight+인원) 로드
-loadGameData();
+// ── 초기화 ────────────────────────────────────────────────────
+// Sheets가 단일 진실의 원천 — loadAllGames 하나로 모든 데이터 로드
+loadAllGames();
 
 // ESC로 모달 닫기
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
