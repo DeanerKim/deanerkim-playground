@@ -261,6 +261,10 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
       <button class="chip" data-f="hard" onclick="setFilter(this)">고급 (3.0+)</button>
       <button class="chip" data-f="solo" onclick="setFilter(this)">솔로 가능</button>
     </div>
+    <!-- 소유자 필터: 시트에서 소유자 목록 로드 후 동적 생성 -->
+    <div class="filter-chips" id="owner-chips" style="display:none">
+      <span style="font-size:11px;color:var(--text3);padding:7px 4px;white-space:nowrap">소유자</span>
+    </div>
   </div>
 
   <div class="grid" id="grid" style="opacity:0"></div>
@@ -463,6 +467,7 @@ async function loadAllGames(){
 
     showPageLoading(false);
     applyFilter();
+    buildOwnerChips(); // 소유자 필터 칩 생성
 
     // 이미지 주입
     GAMES.forEach(g => { if(g.img) injectThumb(g.name, g.img); });
@@ -488,7 +493,41 @@ function isRecGame(g){ return g.rec === true; }
 
 // ── 상태 ────────────────────────────────────────────────────
 let curFilter='all';
+let curOwner='all'; // 소유자 필터
 let curGame=null;
+
+// 소유자 칩 동적 생성 (loadAllGames 완료 후 호출)
+function buildOwnerChips(){
+  const ownerSet = new Set();
+  GAMES.forEach(g => (g.owners||[]).forEach(o => ownerSet.add(o)));
+  const owners = [...ownerSet].sort();
+  const container = document.getElementById('owner-chips');
+  if(!owners.length){ container.style.display='none'; return; }
+  container.style.display='flex';
+  // 기존 칩 초기화 (라벨은 유지)
+  const label = container.querySelector('span');
+  container.innerHTML='';
+  container.appendChild(label);
+  // 전체 칩
+  const allChip = document.createElement('button');
+  allChip.className='chip on'; allChip.dataset.o='all';
+  allChip.textContent='전체'; allChip.onclick=()=>setOwner(allChip);
+  container.appendChild(allChip);
+  // 소유자별 칩
+  owners.forEach(o=>{
+    const chip=document.createElement('button');
+    chip.className='chip'; chip.dataset.o=o;
+    chip.textContent=o; chip.onclick=()=>setOwner(chip);
+    container.appendChild(chip);
+  });
+}
+
+function setOwner(btn){
+  document.querySelectorAll('#owner-chips .chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  curOwner=btn.dataset.o;
+  applyFilter();
+}
 
 // 렌더 그리드
 function renderGrid(list){
@@ -526,6 +565,8 @@ function applyFilter(){
     if(curFilter==='easy' && (!g.weight||g.weight>=2)) return false;
     if(curFilter==='hard' && (!g.weight||g.weight<3))  return false;
     if(curFilter==='solo' && !g.solo) return false;
+    // 소유자 필터 — 해당 소유자가 owners 배열에 포함된 게임만
+    if(curOwner!=='all' && !(g.owners||[]).includes(curOwner)) return false;
     if(q&&!g.name.toLowerCase().includes(q)&&!(g.desc||'').toLowerCase().includes(q)) return false;
     return true;
   });
@@ -872,14 +913,13 @@ function renderVoteBoard(){
     const game=GAMES.find(g=>g.name===name);
     const cnt=totals[name]||0;
     const pct=Math.round((cnt/maxVotes)*100);
-    const imgUrl=game?.img||thumbCache[name]||'';
+    const imgUrl=toDriveThumb(game?.img||thumbCache[name]||'');
     const voted=myVotes.includes(name);
-    // 투표자 이름 목록
     const voterList=Object.entries(votes).filter(([,arr])=>arr.includes(name)).map(([v])=>v).join(', ');
     return `
     <div class="vote-card">
       <div class="vote-card-thumb">
-        ${imgUrl?`<img src="${imgUrl}" alt="${name}">`:`<span>${game?emoji(game):'🎲'}</span>`}
+        ${imgUrl?`<img src="${imgUrl}" alt="${name}" onerror="this.style.display='none'">`:`<span>${game?emoji(game):'🎲'}</span>`}
         ${cnt===maxVotes&&cnt>0?'<div class="winner-badge">👑 1위</div>':''}
       </div>
       <div class="vote-card-body">
