@@ -385,7 +385,6 @@ function diffInfo(d){
   return {label:d.toFixed(2),cls:'d-vhard'};
 }
 
-// BGG ID 하드코딩 맵 — API 없이 직접 브라우저에서 호출
 const BGG_IDS = {
   '아줄 대결':375151,'용스팬':410201,'듄 봉기':397598,'셀레스티아':172314,
   '하모니즈':414317,'카르카손':822,'배틀그라운드':314700,'루미큐브':51,
@@ -404,12 +403,59 @@ const BGG_IDS = {
 
 const thumbCache = {};
 
+// 페이지 로드 시 10개씩 배치로 미리 가져오기
+async function prefetchAllThumbs(){
+  const entries = Object.entries(BGG_IDS);
+  const BATCH = 10;
+  for(let i=0;i<entries.length;i+=BATCH){
+    const batch = entries.slice(i,i+BATCH);
+    const ids = batch.map(([,id])=>id).join(',');
+    const nameById = Object.fromEntries(batch.map(([n,id])=>[id,n]));
+    try{
+      const res = await fetch(`https://api.geekdo.com/xmlapi2/thing?id=${ids}`);
+      const txt = await res.text();
+      const doc = new DOMParser().parseFromString(txt,'text/xml');
+      doc.querySelectorAll('item').forEach(item=>{
+        const id = parseInt(item.getAttribute('id'));
+        const name = nameById[id];
+        if(!name) return;
+        const el = item.querySelector('thumbnail');
+        const url = el ? el.textContent.trim().replace(/^\/\//,'https://') : '';
+        thumbCache[name] = url;
+        // 이미 렌더된 카드에 이미지 주입
+        injectThumb(name, url);
+      });
+    }catch(e){}
+    if(i+BATCH<entries.length) await new Promise(r=>setTimeout(r,1200));
+  }
+}
+
+function injectThumb(gameName, url){
+  if(!url) return;
+  const game = GAMES.find(g=>g.name===gameName);
+  if(!game) return;
+  const thumbEl = document.getElementById('th-'+game.n);
+  const emoEl = document.getElementById('te-'+game.n);
+  const spinner = document.getElementById('tl-'+game.n);
+  if(!thumbEl) return;
+  if(spinner) spinner.style.display='none';
+  // 이미 이미지 있으면 스킵
+  if(thumbEl.querySelector('img')) return;
+  const img = document.createElement('img');
+  img.src = url; img.alt = gameName;
+  img.onload=()=>{
+    if(emoEl) emoEl.style.display='none';
+    const t = document.getElementById('th-'+game.n);
+    if(t && !t.querySelector('img.loaded')) { img.classList.add('loaded'); t.insertBefore(img,t.firstChild); }
+  };
+  img.onerror=()=>{ if(spinner) spinner.style.display='none'; };
+}
+
 async function fetchThumb(game){
   if(thumbCache[game.name]!==undefined) return thumbCache[game.name];
   const id = BGG_IDS[game.name];
   if(!id){thumbCache[game.name]='';return '';}
   try{
-    // BGG XML API 브라우저 직접 호출 (CORS 허용)
     const res = await fetch(`https://api.geekdo.com/xmlapi2/thing?id=${id}`);
     const txt = await res.text();
     const doc = new DOMParser().parseFromString(txt,'text/xml');
@@ -449,22 +495,13 @@ function renderGrid(list){
     </div>`;
   }).join('');
 
-  // 비동기 썸네일 로드
-  list.forEach(async game=>{
-    const url=await fetchThumb(game);
-    const spinner=document.getElementById('tl-'+game.n);
-    const emoEl=document.getElementById('te-'+game.n);
-    const thumbEl=document.getElementById('th-'+game.n);
-    if(spinner) spinner.style.display='none';
-    if(url&&thumbEl){
-      const img=document.createElement('img');
-      img.src=url;
-      img.alt=game.name;
-      img.onload=()=>{
-        if(emoEl) emoEl.style.display='none';
-        thumbEl.insertBefore(img,thumbEl.firstChild);
-      };
-      img.onerror=()=>{};
+  // 썸네일은 prefetchAllThumbs()가 배치로 처리 — 이미 캐시된 것만 즉시 주입
+  list.forEach(game=>{
+    const cached = thumbCache[game.name];
+    if(cached) injectThumb(game.name, cached);
+    else {
+      const spinner = document.getElementById('tl-'+game.n);
+      if(spinner) spinner.style.display='flex';
     }
   });
 }
@@ -706,6 +743,9 @@ function showToast(msg,type=''){
 // 초기화
 document.getElementById('rec-n').textContent=GAMES.filter(g=>g.rec).length;
 applyFilter();
+
+// BGG 이미지 배치 프리패치 시작 (10개씩, 1.2초 간격)
+prefetchAllThumbs();
 
 // ESC로 모달 닫기
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
