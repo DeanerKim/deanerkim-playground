@@ -99,6 +99,9 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
 .mbadge{font-size:11px;padding:3px 9px;border-radius:12px;border:1px solid var(--border2);color:var(--text2)}
 .close-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;line-height:1;font-size:22px;flex-shrink:0}
 .close-btn:hover{color:var(--text)}
+.rec-toggle-btn{border:1px solid var(--border2);border-radius:20px;padding:4px 12px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;background:transparent;color:var(--text3);margin-top:4px}
+.rec-toggle-btn.on{background:rgba(201,168,76,.15);border-color:var(--gold-dim);color:var(--gold)}
+.rec-toggle-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
 
 /* TABS */
 .tabs{display:flex;border-bottom:1px solid var(--border);padding:0 1.25rem}
@@ -228,6 +231,7 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
       <div class="modal-info">
         <h2 id="m-title"></h2>
         <div class="badges" id="m-badges"></div>
+        <button class="rec-toggle-btn" id="rec-toggle-btn" onclick="toggleRec()"></button>
       </div>
       <button class="close-btn" onclick="closeModal()">×</button>
     </div>
@@ -526,23 +530,29 @@ function openModal(idx){
     coverEl.innerHTML=`<span style="font-size:28px">${emoji(g)}</span>`;
   }
 
-  // 배지 — BGG 데이터 우선, 없으면 시트 데이터
+  // 배지 — Sheets 데이터 우선
   const minP=bggData.minP||''; const maxP=bggData.maxP||'';
   const players=minP&&maxP ? (minP===maxP?minP+'인':minP+'~'+maxP+'인') : (g.players?g.players+'인':'');
   const weight=bggData.weight||g.diff||'';
   const time=bggData.time||'';
   const score=bggData.score||'';
-  const d=diffInfo(parseFloat(weight)||0);
+  // 추천 상태 — Sheets 우선, 없으면 하드코딩
+  const isRec = bggData.rec !== undefined ? bggData.rec : g.rec;
   document.getElementById('m-badges').innerHTML=`
     ${players?`<span class="mbadge">👥 ${players}</span>`:''}
     ${weight?`<span class="mbadge">난이도 ${parseFloat(weight).toFixed(2)}</span>`:''}
     ${time?`<span class="mbadge">⏱ ${time}분</span>`:''}
-    ${score?`<span class="mbadge">⭐ BGG ${score}</span>`:''}
-    ${g.rec?'<span class="mbadge" style="border-color:var(--gold-dim);color:var(--gold)">추천</span>':''}
+    ${score?`<span class="mbadge">BGG ${score}</span>`:''}
     ${g.solo?'<span class="mbadge">솔로 가능</span>':''}
   `;
 
-  // 소개 — Sheets 게임데이터 우선, 없으면 하드코딩 데이터
+  // 추천 버튼
+  const recBtn=document.getElementById('rec-toggle-btn');
+  recBtn.textContent=isRec?'⭐ 추천 중':'☆ 추천 추가';
+  recBtn.classList.toggle('on',isRec);
+  recBtn.dataset.rec=isRec?'true':'false';
+
+  // 소개
   const sheetDesc=bggData.desc||'';
   document.getElementById('m-desc').textContent=sheetDesc||g.desc||'아직 소개가 등록되지 않았습니다.';
   document.getElementById('m-video-wrap').innerHTML=g.video
@@ -700,6 +710,48 @@ async function handleImageUpload(input){
     statusEl.style.color='var(--red)';
   }
 }
+
+// 추천 토글
+async function toggleRec(){
+  if(!curGame) return;
+  const recBtn=document.getElementById('rec-toggle-btn');
+  const curRec=recBtn.dataset.rec==='true';
+  const newRec=!curRec;
+
+  // UI 즉시 반영
+  recBtn.textContent=newRec?'⭐ 추천 중':'☆ 추천 추가';
+  recBtn.classList.toggle('on',newRec);
+  recBtn.dataset.rec=newRec?'true':'false';
+
+  // 캐시 업데이트
+  if(!gameDataCache[curGame.name]) gameDataCache[curGame.name]={};
+  gameDataCache[curGame.name].rec=newRec;
+  curGame.rec=newRec;
+
+  // 그리드 카드 배지 업데이트
+  const th=document.getElementById('th-'+curGame.n);
+  if(th){
+    const existing=th.querySelector('.star-badge');
+    if(newRec&&!existing){
+      const b=document.createElement('div');
+      b.className='star-badge'; b.textContent='추천'; th.appendChild(b);
+    } else if(!newRec&&existing){ existing.remove(); }
+  }
+
+  // 헤더 추천 카운트
+  const recCount=GAMES.filter(g=>{
+    const d=gameDataCache[g.name];
+    return d&&d.rec!==undefined ? d.rec : g.rec;
+  }).length;
+  document.getElementById('rec-n').textContent=recCount;
+
+  // Sheets 저장
+  try{
+    await fetch(API,{method:'POST',body:JSON.stringify({action:'toggleRec',gameName:curGame.name,rec:newRec})});
+    showToast(newRec?'⭐ 추천에 추가됐어요':'추천에서 제거됐어요', newRec?'ok':'');
+  }catch(e){ showToast('저장 실패','err'); }
+}
+
 async function askAI(){
   const q=document.getElementById('qa-input').value.trim();
   if(!q||!curGame) return;
