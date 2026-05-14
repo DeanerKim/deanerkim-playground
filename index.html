@@ -418,16 +418,25 @@ function diffInfo(d){
   return {label:Number(d).toFixed(2),cls:'d-vhard'};
 }
 
-function injectThumb(gameName, url){
+function toDriveThumb(url){
+  if(!url) return '';
+  // 이미 thumbnail URL이면 그대로
+  if(url.includes('drive.google.com/thumbnail')) return url;
+  // 공유 링크에서 ID 추출 → thumbnail URL 변환
+  const idMatch = url.match(/[-\w]{25,}/);
+  if(idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w400`;
+  return url;
+}
+
+function injectThumb(gameName, rawUrl){
+  const url = toDriveThumb(rawUrl);
   if(!url) return;
   thumbCache[gameName] = url;
   const game = GAMES.find(g => g.name === gameName);
   if(!game) return;
   const thumbEl = document.getElementById('th-'+game.n);
   const emoEl   = document.getElementById('te-'+game.n);
-  const spinner  = document.getElementById('tl-'+game.n);
   if(!thumbEl || thumbEl.querySelector('img')) return;
-  if(spinner) spinner.style.display='none';
   const img = document.createElement('img');
   img.src = url; img.alt = gameName;
   img.onload = () => {
@@ -435,7 +444,7 @@ function injectThumb(gameName, url){
     const t = document.getElementById('th-'+game.n);
     if(t && !t.querySelector('img')){ img.classList.add('loaded'); t.insertBefore(img, t.firstChild); }
   };
-  img.onerror = () => { if(spinner) spinner.style.display='none'; };
+  img.onerror = () => {};
 }
 
 // ── Sheets에서 전체 게임 목록 로드 (단일 진실의 원천) ──────────
@@ -546,9 +555,9 @@ function openModal(idx){
   // 제목
   document.getElementById('m-title').textContent=g.name;
 
-  // 모달 커버 이미지 — g.img 직접 사용
+  // 모달 커버 이미지 — Drive URL 자동 변환
   const coverEl=document.getElementById('m-cover');
-  const imgUrl=g.img||thumbCache[g.name]||'';
+  const imgUrl=toDriveThumb(g.img||thumbCache[g.name]||'');
   coverEl.innerHTML='';
   if(imgUrl){
     const img=document.createElement('img');
@@ -562,7 +571,7 @@ function openModal(idx){
   // 배지 — Sheets에서 로드된 g 객체 직접 사용
   const minP=g.minP||''; const maxP=g.maxP||'';
   const players=minP&&maxP ? (minP===maxP?minP+'인':minP+'~'+maxP+'인') : '';
-  const weight=g.weight||'';
+  const weight=g.weight||g.diff||0;
   const theme=g.theme||'';
   const isRec=g.rec===true;
   document.getElementById('m-badges').innerHTML=`
