@@ -254,6 +254,18 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
         </div>
         <div class="hint">Drive에서 파일 공유 → "링크 있는 모든 사용자" 설정 후 링크 붙여넣기</div>
       </div>
+
+      <div class="rulebook-section">
+        <div class="sec-label" style="margin-top:1rem">표지 이미지 업로드</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label id="img-upload-label" style="padding:8px 14px;border:1px dashed var(--border2);border-radius:8px;font-size:13px;color:var(--text2);cursor:pointer;transition:border-color .2s">
+            📁 이미지 파일 선택
+            <input type="file" id="img-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+          </label>
+          <div id="img-upload-status" style="font-size:12px;color:var(--text3)"></div>
+        </div>
+        <div class="hint">jpg/png 파일을 선택하면 Drive에 자동 저장 후 페이지에 반영돼요</div>
+      </div>
     </div>
 
     <!-- QA -->
@@ -539,6 +551,7 @@ function openModal(idx){
   // 룰북
   document.getElementById('rb-current').style.display='none';
   document.getElementById('rb-input').value='';
+  document.getElementById('img-upload-status').textContent='';
   loadRulebook(g.name);
 
   // QA 초기화
@@ -626,7 +639,67 @@ async function saveRulebook(){
   }catch(e){showToast('저장 실패. 다시 시도해주세요','err');}
 }
 
-// AI Q&A
+// 이미지 업로드
+async function handleImageUpload(input){
+  if(!input.files||!input.files[0]||!curGame) return;
+  const file=input.files[0];
+  const statusEl=document.getElementById('img-upload-status');
+  const coverEl=document.getElementById('m-cover');
+
+  // 파일 크기 체크 (5MB 초과 시 경고)
+  if(file.size>5*1024*1024){
+    statusEl.textContent='⚠ 파일이 너무 큽니다 (5MB 이하)';
+    statusEl.style.color='var(--red)';
+    return;
+  }
+
+  statusEl.textContent='⏳ 업로드 중...';
+  statusEl.style.color='var(--text3)';
+
+  // 미리보기 (로컬 즉시 표시)
+  const localUrl=URL.createObjectURL(file);
+  coverEl.innerHTML=`<img src="${localUrl}" alt="미리보기" style="width:100%;height:100%;object-fit:cover">`;
+
+  // base64 변환
+  const base64=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>resolve(e.target.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+
+  try{
+    const res=await fetch(API,{
+      method:'POST',
+      body:JSON.stringify({
+        action:'uploadImage',
+        gameName:curGame.name,
+        base64,
+        mimeType:file.type
+      })
+    });
+    const data=await res.json();
+    if(data.ok){
+      // Drive URL로 캐시 업데이트
+      gameDataCache[curGame.name]=gameDataCache[curGame.name]||{};
+      gameDataCache[curGame.name].img=data.url;
+      thumbCache[curGame.name]=data.url;
+      // 그리드 카드 이미지도 업데이트
+      injectThumb(curGame.name, data.url);
+      statusEl.textContent='✓ 저장 완료!';
+      statusEl.style.color='#6ec485';
+      showToast('이미지가 저장됐어요','ok');
+      // input 초기화
+      input.value='';
+    } else {
+      statusEl.textContent='⚠ 저장 실패: '+( data.error||'');
+      statusEl.style.color='var(--red)';
+    }
+  }catch(e){
+    statusEl.textContent='⚠ 네트워크 오류';
+    statusEl.style.color='var(--red)';
+  }
+}
 async function askAI(){
   const q=document.getElementById('qa-input').value.trim();
   if(!q||!curGame) return;
