@@ -709,70 +709,23 @@ async function askAI(){
   resp.style.display='none';
 
   try{
-    // 룰북 PDF가 있으면 문서로 첨부, 없으면 텍스트 기반 답변
     const rulebookUrl = curGame.rulebook || '';
-    let messages;
-
-    if(rulebookUrl){
-      // Drive 공유 링크에서 파일 ID 추출 → 다운로드 URL
-      const idMatch = rulebookUrl.match(/[-\w]{25,}/);
-      const pdfUrl = idMatch
-        ? `https://drive.google.com/uc?export=download&id=${idMatch[0]}`
-        : rulebookUrl;
-
-      // PDF를 base64로 가져오기
-      let pdfContent = null;
-      try{
-        const pdfRes = await fetch(pdfUrl);
-        const blob = await pdfRes.blob();
-        const base64 = await new Promise(resolve => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(',')[1]);
-          reader.readAsDataURL(blob);
-        });
-        pdfContent = base64;
-      }catch(pdfErr){
-        console.log('PDF 로드 실패, 텍스트 기반 답변으로 전환:', pdfErr);
-      }
-
-      if(pdfContent){
-        messages = [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: pdfContent }
-            },
-            {
-              type: 'text',
-              text: `위 룰북 PDF를 참고해서 다음 질문에 한국어로 답변해주세요:\n\n${q}`
-            }
-          ]
-        }];
-      } else {
-        // PDF 로드 실패 시 텍스트 기반
-        messages = [{ role:'user', content: q }];
-      }
-    } else {
-      messages = [{ role:'user', content: q }];
-    }
-
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1024,
-        system:`당신은 보드게임 "${curGame.name}" 전문가입니다. 게임 소개: "${curGame.desc}". ${rulebookUrl ? '첨부된 룰북 PDF를 최우선으로 참고해서' : '알고 있는 지식을 바탕으로'} 정확하고 친절하게 한국어로 답변하세요.`,
-        messages
+    const r = await fetch(API, {
+      method: 'POST',
+      body: JSON.stringify({
+        action:   'askAI',
+        gameName: curGame.name,
+        gameDesc: curGame.desc || '',
+        rulebook: rulebookUrl,
+        question: q,
       })
     });
-    const data=await r.json();
-    const text=data.content?.map(c=>c.text||'').join('')||'답변을 받아오지 못했습니다.';
-    resp.textContent=text;
-    resp.style.display='block';
+    const data = await r.json();
+    const text = data.answer || '답변을 받아오지 못했습니다.';
+    resp.textContent = text;
+    resp.style.display = 'block';
     if(!qaHistory[curGame.name]) qaHistory[curGame.name]=[];
-    qaHistory[curGame.name].unshift({q,a:text});
+    qaHistory[curGame.name].unshift({q, a:text});
     if(qaHistory[curGame.name].length>10) qaHistory[curGame.name].pop();
     document.getElementById('qa-input').value='';
     renderQAHistory(curGame.name);
