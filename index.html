@@ -143,17 +143,20 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
 
 /* LOG TAB */
 .log-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
-.log-form input,.log-form textarea{padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none}
+.log-form input,.log-form textarea,.log-form select{padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none}
 .log-form input:focus,.log-form textarea:focus{border-color:var(--gold-dim)}
 .log-form .full{grid-column:1/-1}
 .log-form textarea{resize:vertical;min-height:60px}
-.log-list{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto}
-.log-item{background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border)}
-.log-top{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:6px}
+.playtime-total{background:rgba(201,168,76,.1);border:1px solid var(--gold-dim);border-radius:8px;padding:8px 14px;font-size:13px;color:var(--gold);margin-bottom:1rem;display:flex;align-items:center;gap:8px}
+.log-list{display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto}
+.log-item{background:var(--bg3);border-radius:10px;border:1px solid var(--border);overflow:hidden}
+.log-item-header{padding:10px 14px 6px;display:flex;justify-content:space-between;align-items:flex-start}
 .log-winner{font-size:14px;font-weight:500;color:var(--gold)}
-.log-players{font-size:12px;color:var(--text2);margin-top:3px}
-.log-memo{font-size:12px;color:var(--text3);margin-top:4px;font-style:italic}
-.log-score{font-size:12px;color:var(--text2)}
+.log-meta{font-size:11px;color:var(--text3);margin-top:3px}
+.log-photo{width:100%;max-height:180px;object-fit:cover;display:block;border-top:1px solid var(--border)}
+.log-footer{padding:6px 14px 10px;display:flex;gap:12px;flex-wrap:wrap}
+.log-pill{font-size:11px;color:var(--text3);background:var(--bg2);padding:2px 8px;border-radius:10px}
+.log-memo-txt{font-size:12px;color:var(--text3);padding:0 14px 10px;font-style:italic}
 .sync-status{font-size:11px;margin-top:6px}
 .sync-ok{color:#6ec485}
 .sync-err{color:#c46060}
@@ -270,17 +273,23 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
 
     <!-- LOG -->
     <div class="tab-body" id="tab-log">
+      <div class="playtime-total" id="playtime-total" style="display:none">
+        ⏱ 총 플레이 시간: <strong id="playtime-text">-</strong>
+      </div>
       <div class="sec-label">플레이 기록 추가</div>
       <div class="log-form">
+        <input type="date" id="log-date">
         <input type="text" id="log-players" placeholder="플레이어 (쉼표로 구분)">
         <input type="text" id="log-winner" placeholder="우승자">
         <input type="text" id="log-score" placeholder="점수 (선택)">
-        <input type="date" id="log-date">
+        <input type="number" id="log-minutes" placeholder="플레이 시간 (분)" min="0" class="full">
+        <input type="text" id="log-photo" placeholder="플레이 사진 URL (Drive 공유 링크)" class="full">
         <textarea class="full" id="log-memo" placeholder="메모 (선택)"></textarea>
       </div>
-      <button class="btn btn-gold" style="width:100%;margin-bottom:1rem" onclick="addLog()">+ 기록 추가 (Google Sheets에 저장)</button>
+      <button class="btn btn-gold" style="width:100%;margin-bottom:8px" onclick="addLog()">+ 기록 추가 → Google Sheets 저장</button>
       <div class="sync-status" id="sync-status"></div>
-      <div class="sec-label" style="margin-top:1rem">플레이 히스토리</div>
+      <div class="hint" style="margin-bottom:1rem">📸 사진: Drive에 사진 업로드 → 공유 → "링크 있는 모든 사용자" → 링크 붙여넣기</div>
+      <div class="sec-label" style="margin-top:0.5rem">플레이 히스토리</div>
       <div id="log-list"><div class="log-loading">기록 불러오는 중...</div></div>
     </div>
   </div>
@@ -385,91 +394,46 @@ function diffInfo(d){
   return {label:d.toFixed(2),cls:'d-vhard'};
 }
 
-const BGG_IDS = {
-  '아줄 대결':375151,'용스팬':410201,'듄 봉기':397598,'셀레스티아':172314,
-  '하모니즈':414317,'카르카손':822,'배틀그라운드':314700,'루미큐브':51,
-  'WoW: 리치왕의 분노':353877,'스몰월드 오브 워크래프트':325652,'플레임크래프트':254127,
-  '임페리얼 스팀':246430,'스플렌더 마블':320220,'윙스팬':266192,'딕싯 디즈니':376364,
-  '쿼리도 팩맨':624,'테인티드 그레일 Fall of Avalon':262620,'테인티드 그레일 Kings of Ruin':361545,
-  '챠오챠오':29485,'7원더스':68448,'라스베가스':117959,'메이지나이트':96848,
-  '신들의 정원':330426,'반지의 제왕: 원정대의 운명':370591,'텔레스트레이션':46213,
-  '리그오브레전드: 메크 vs 미니언':209010,'푸에르토리코':3076,'레지사이드':307658,
-  '프로스트헤이븐':295770,'반지의 제왕: 가운데땅에서의 대결':115746,'투매니본즈':192135,
-  '루우트':237182,'스위트랜드':384735,'힛스터':348853,'노 터치 크라켄':340727,
-  '스페이스크루':284083,'딥씨크루':324786,'나혼자만레벨업':397296,'정령섬':162886,
-  '원드러스 크리처':389951,'반지의 제왕: 트릭테이킹':353467,'킵 더 히어로즈 아웃':329716,
-  '슬리핑 갓즈':255984,'세티':418709,'트리스메기스투스':281442,'프라이멀':364073,'아크노바':342942,
-};
-
 const thumbCache = {};
-
-// 페이지 로드 시 10개씩 배치로 미리 가져오기
-async function prefetchAllThumbs(){
-  const entries = Object.entries(BGG_IDS);
-  const BATCH = 10;
-  for(let i=0;i<entries.length;i+=BATCH){
-    const batch = entries.slice(i,i+BATCH);
-    const ids = batch.map(([,id])=>id).join(',');
-    const nameById = Object.fromEntries(batch.map(([n,id])=>[id,n]));
-    try{
-      const res = await fetch(`https://api.geekdo.com/xmlapi2/thing?id=${ids}`);
-      const txt = await res.text();
-      const doc = new DOMParser().parseFromString(txt,'text/xml');
-      doc.querySelectorAll('item').forEach(item=>{
-        const id = parseInt(item.getAttribute('id'));
-        const name = nameById[id];
-        if(!name) return;
-        const el = item.querySelector('thumbnail');
-        const url = el ? el.textContent.trim().replace(/^\/\//,'https://') : '';
-        thumbCache[name] = url;
-        // 이미 렌더된 카드에 이미지 주입
-        injectThumb(name, url);
-      });
-    }catch(e){}
-    if(i+BATCH<entries.length) await new Promise(r=>setTimeout(r,1200));
-  }
-}
 
 function injectThumb(gameName, url){
   if(!url) return;
-  const game = GAMES.find(g=>g.name===gameName);
+  thumbCache[gameName]=url;
+  const game=GAMES.find(g=>g.name===gameName);
   if(!game) return;
-  const thumbEl = document.getElementById('th-'+game.n);
-  const emoEl = document.getElementById('te-'+game.n);
-  const spinner = document.getElementById('tl-'+game.n);
-  if(!thumbEl) return;
+  const thumbEl=document.getElementById('th-'+game.n);
+  const emoEl=document.getElementById('te-'+game.n);
+  const spinner=document.getElementById('tl-'+game.n);
+  if(!thumbEl||thumbEl.querySelector('img')) return;
   if(spinner) spinner.style.display='none';
-  // 이미 이미지 있으면 스킵
-  if(thumbEl.querySelector('img')) return;
-  const img = document.createElement('img');
-  img.src = url; img.alt = gameName;
+  const img=document.createElement('img');
+  img.src=url; img.alt=gameName;
   img.onload=()=>{
     if(emoEl) emoEl.style.display='none';
-    const t = document.getElementById('th-'+game.n);
-    if(t && !t.querySelector('img.loaded')) { img.classList.add('loaded'); t.insertBefore(img,t.firstChild); }
+    const t=document.getElementById('th-'+game.n);
+    if(t&&!t.querySelector('img')){ img.classList.add('loaded'); t.insertBefore(img,t.firstChild); }
   };
   img.onerror=()=>{ if(spinner) spinner.style.display='none'; };
-}
-
-async function fetchThumb(game){
-  if(thumbCache[game.name]!==undefined) return thumbCache[game.name];
-  const id = BGG_IDS[game.name];
-  if(!id){thumbCache[game.name]='';return '';}
-  try{
-    const res = await fetch(`https://api.geekdo.com/xmlapi2/thing?id=${id}`);
-    const txt = await res.text();
-    const doc = new DOMParser().parseFromString(txt,'text/xml');
-    const el = doc.querySelector('thumbnail');
-    const url = el ? el.textContent.trim().replace(/^\/\//,'https://') : '';
-    thumbCache[game.name] = url;
-    return url;
-  }catch(e){thumbCache[game.name]='';return '';}
 }
 
 // 상태
 let curFilter='all';
 let curGame=null;
 const qaHistory={};
+let gameDataCache={}; // BGG 이미지+weight+인원 캐시 (Sheets에서 로드)
+
+// Sheets에서 게임 데이터(이미지URL, weight, 인원수) 로드
+async function loadGameData(){
+  try{
+    const res=await fetch(`${API}?action=getGameData`);
+    const data=await res.json();
+    gameDataCache=data.games||{};
+    // 로드된 이미지를 그리드에 즉시 주입
+    Object.entries(gameDataCache).forEach(([name,d])=>{
+      if(d.img) injectThumb(name, d.img);
+    });
+  }catch(e){ console.log('게임 데이터 로드 실패:', e); }
+}
 
 // 렌더 그리드
 function renderGrid(list){
@@ -495,14 +459,12 @@ function renderGrid(list){
     </div>`;
   }).join('');
 
-  // 썸네일은 prefetchAllThumbs()가 배치로 처리 — 이미 캐시된 것만 즉시 주입
+  // 이미 캐시된 이미지 주입, 없으면 스피너 숨김
   list.forEach(game=>{
-    const cached = thumbCache[game.name];
-    if(cached) injectThumb(game.name, cached);
-    else {
-      const spinner = document.getElementById('tl-'+game.n);
-      if(spinner) spinner.style.display='flex';
-    }
+    const cached=gameDataCache[game.name]?.img||thumbCache[game.name]||'';
+    const spinner=document.getElementById('tl-'+game.n);
+    if(cached){ injectThumb(game.name, cached); }
+    else { if(spinner) spinner.style.display='none'; }
   });
 }
 
@@ -531,39 +493,50 @@ function setFilter(btn){
 }
 
 // 모달
-async function openModal(idx){
+function openModal(idx){
   curGame=GAMES[idx];
   const g=curGame;
-  document.getElementById('m-title').textContent=g.name;
-  document.getElementById('m-emoji').textContent=emoji(g);
 
-  // 모달 커버 이미지
+  // 제목
+  document.getElementById('m-title').textContent=g.name;
+
+  // 모달 커버 이미지 — 캐시에서 즉시 표시
   const coverEl=document.getElementById('m-cover');
-  coverEl.innerHTML=`<span>${emoji(g)}</span>`;
-  if(g.bgg){
-    const url=await fetchThumb(g);
-    if(url){
-      const img=document.createElement('img');
-      img.src=url;img.alt=g.name;
-      img.onload=()=>{coverEl.innerHTML='';coverEl.appendChild(img);};
-    }
+  const bggData=gameDataCache[g.name]||{};
+  const imgUrl=bggData.img||thumbCache[g.name]||'';
+  coverEl.innerHTML='';
+  if(imgUrl){
+    const img=document.createElement('img');
+    img.src=imgUrl; img.alt=g.name;
+    img.onerror=()=>{coverEl.innerHTML=`<span style="font-size:28px">${emoji(g)}</span>`;};
+    coverEl.appendChild(img);
+  } else {
+    coverEl.innerHTML=`<span style="font-size:28px">${emoji(g)}</span>`;
   }
 
-  // 배지
-  const d=diffInfo(g.diff);
+  // 배지 — BGG 데이터 우선, 없으면 시트 데이터
+  const minP=bggData.minP||''; const maxP=bggData.maxP||'';
+  const players=minP&&maxP ? (minP===maxP?minP+'인':minP+'~'+maxP+'인') : (g.players?g.players+'인':'');
+  const weight=bggData.weight||g.diff||'';
+  const time=bggData.time||'';
+  const score=bggData.score||'';
+  const d=diffInfo(parseFloat(weight)||0);
   document.getElementById('m-badges').innerHTML=`
-    ${g.players?`<span class="mbadge">👥 ${g.players}인</span>`:''}
-    ${g.diff?`<span class="mbadge">난이도 ${d.label}</span>`:''}
-    ${g.rec?'<span class="mbadge" style="border-color:var(--gold-dim);color:var(--gold)">⭐ 추천</span>':''}
-    ${g.solo?'<span class="mbadge">🎮 솔로 가능</span>':''}
+    ${players?`<span class="mbadge">👥 ${players}</span>`:''}
+    ${weight?`<span class="mbadge">난이도 ${parseFloat(weight).toFixed(2)}</span>`:''}
+    ${time?`<span class="mbadge">⏱ ${time}분</span>`:''}
+    ${score?`<span class="mbadge">⭐ BGG ${score}</span>`:''}
+    ${g.rec?'<span class="mbadge" style="border-color:var(--gold-dim);color:var(--gold)">추천</span>':''}
+    ${g.solo?'<span class="mbadge">솔로 가능</span>':''}
   `;
 
-  // 소개
-  document.getElementById('m-desc').textContent=g.desc||'아직 소개가 등록되지 않았습니다.';
+  // 소개 — Sheets 게임데이터 우선, 없으면 하드코딩 데이터
+  const sheetDesc=bggData.desc||'';
+  document.getElementById('m-desc').textContent=sheetDesc||g.desc||'아직 소개가 등록되지 않았습니다.';
   document.getElementById('m-video-wrap').innerHTML=g.video
     ?`<a class="video-btn" href="${g.video}" target="_blank">▶ 유튜브 룰 설명 보기</a>`:'';
 
-  // 룰북 불러오기
+  // 룰북
   document.getElementById('rb-current').style.display='none';
   document.getElementById('rb-input').value='';
   loadRulebook(g.name);
@@ -580,16 +553,22 @@ async function openModal(idx){
   document.getElementById('log-players').value='';
   document.getElementById('log-winner').value='';
   document.getElementById('log-score').value='';
+  document.getElementById('log-minutes').value='';
+  document.getElementById('log-photo').value='';
   document.getElementById('log-memo').value='';
   document.getElementById('sync-status').textContent='';
+  document.getElementById('playtime-total').style.display='none';
   loadLogs(g.name);
 
-  // 탭 초기화
+  // 탭 초기화 & 오버레이 열기
   switchTabById('overview');
   document.getElementById('overlay').classList.add('open');
 }
 
-function closeModal(){document.getElementById('overlay').classList.remove('open');}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  curGame=null;
+}
 function overlayClick(e){if(e.target.id==='overlay') closeModal();}
 
 function switchTab(btn,id){
@@ -684,20 +663,51 @@ async function loadLogs(name){
     const res=await fetch(`${API}?action=getLogs&game=${encodeURIComponent(name)}`);
     const data=await res.json();
     renderLogs(data.logs||[]);
+    // 누적 플레이 시간 표시
+    const totalMin=data.totalMinutes||0;
+    const ptEl=document.getElementById('playtime-total');
+    const ptTxt=document.getElementById('playtime-text');
+    if(totalMin>0){
+      const h=Math.floor(totalMin/60), m=totalMin%60;
+      ptTxt.textContent=h>0?`${h}시간 ${m}분 (총 ${totalMin}분)`:`${totalMin}분`;
+      ptEl.style.display='flex';
+    } else {
+      ptEl.style.display='none';
+    }
   }catch(e){el.innerHTML='<div class="empty">기록을 불러오지 못했습니다</div>';}
 }
 
 function renderLogs(logs){
   const el=document.getElementById('log-list');
   if(!logs.length){el.innerHTML='<div class="empty">아직 플레이 기록이 없습니다 🎲</div>';return;}
-  el.innerHTML=logs.map(l=>`
+  el.innerHTML=logs.map(l=>{
+    // Drive 공유 링크 → 직접 표시 가능한 썸네일 URL로 변환
+    let photoHtml='';
+    if(l.photoUrl){
+      const idMatch=l.photoUrl.match(/[-\w]{25,}/);
+      const photoSrc=idMatch
+        ?`https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w600`
+        :l.photoUrl;
+      photoHtml=`<img class="log-photo" src="${photoSrc}" alt="플레이 사진" onerror="this.style.display='none'">`;
+    }
+    const pills=[
+      l.players?`👥 ${l.players}`:'',
+      l.score?`점수: ${l.score}`:'',
+      l.playMinutes?`⏱ ${l.playMinutes}분`:'',
+    ].filter(Boolean);
+    return `
     <div class="log-item">
-      <div class="log-top"><span>${l.date||''}</span><span>${l.players||''}</span></div>
-      <div class="log-winner">🏆 ${l.winner}</div>
-      ${l.score?`<div class="log-score">점수: ${l.score}</div>`:''}
-      ${l.memo?`<div class="log-memo">${l.memo}</div>`:''}
-    </div>
-  `).join('');
+      <div class="log-item-header">
+        <div>
+          <div class="log-winner">🏆 ${l.winner||'-'}</div>
+          <div class="log-meta">${l.date||''}</div>
+        </div>
+      </div>
+      ${photoHtml}
+      ${pills.length?`<div class="log-footer">${pills.map(p=>`<span class="log-pill">${p}</span>`).join('')}</div>`:''}
+      ${l.memo?`<div class="log-memo-txt">${l.memo}</div>`:''}
+    </div>`;
+  }).join('');
 }
 
 async function addLog(){
@@ -706,22 +716,23 @@ async function addLog(){
   const score=document.getElementById('log-score').value.trim();
   const date=document.getElementById('log-date').value;
   const memo=document.getElementById('log-memo').value.trim();
+  const playMinutes=parseInt(document.getElementById('log-minutes').value)||0;
+  const photoUrl=document.getElementById('log-photo').value.trim();
   if(!players||!winner||!curGame){showToast('플레이어와 우승자를 입력해주세요','err');return;}
   const st=document.getElementById('sync-status');
   st.innerHTML='<span style="color:var(--text3)">저장 중...</span>';
   try{
     const res=await fetch(API,{
       method:'POST',
-      body:JSON.stringify({action:'saveLog',game:curGame.name,date,players,winner,score,memo})
+      body:JSON.stringify({action:'saveLog',game:curGame.name,date,players,winner,score,playMinutes,photoUrl,memo})
     });
     const data=await res.json();
     if(data.ok){
-      st.innerHTML='<span class="sync-ok">✓ Google Sheets에 저장되었습니다</span>';
-      showToast('플레이 기록이 저장되었습니다','ok');
-      document.getElementById('log-players').value='';
-      document.getElementById('log-winner').value='';
-      document.getElementById('log-score').value='';
-      document.getElementById('log-memo').value='';
+      st.innerHTML='<span class="sync-ok">✓ Sheets에 저장됐습니다</span>';
+      showToast('플레이 기록이 저장됐습니다','ok');
+      ['log-players','log-winner','log-score','log-minutes','log-photo','log-memo'].forEach(id=>{
+        document.getElementById(id).value='';
+      });
       await loadLogs(curGame.name);
     } else {
       st.innerHTML='<span class="sync-err">⚠ 저장 실패</span>';
@@ -744,8 +755,8 @@ function showToast(msg,type=''){
 document.getElementById('rec-n').textContent=GAMES.filter(g=>g.rec).length;
 applyFilter();
 
-// BGG 이미지 배치 프리패치 시작 (10개씩, 1.2초 간격)
-prefetchAllThumbs();
+// Sheets에서 BGG 데이터(이미지+weight+인원) 로드
+loadGameData();
 
 // ESC로 모달 닫기
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
