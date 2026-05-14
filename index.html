@@ -337,16 +337,12 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
     <!-- QA -->
     <div class="tab-body" id="tab-qa">
       <div class="sec-label">룰 & 전략 질문</div>
-      <textarea class="qa-input" id="qa-input" placeholder="예: 첫 번째 턴에 어떤 전략이 유리한가요?"></textarea>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">질문을 입력하면 Claude.ai로 이동해서 답변을 받을 수 있어요. 게임 정보가 자동으로 포함됩니다.</p>
+      <textarea class="qa-input" id="qa-input" placeholder="예: 첫 번째 턴에 어떤 전략이 유리한가요?&#10;예: 협력 시 역할 분담은 어떻게 하나요?"></textarea>
       <div class="qa-foot">
-        <span class="qa-hint" id="qa-hint-text">Claude가 이 게임의 룰 기반으로 답변합니다</span>
-        <button class="btn btn-gold" onclick="askAI()">질문하기 →</button>
+        <span class="qa-hint" id="qa-hint-text"></span>
+        <button class="btn btn-gold" onclick="askAI()">Claude.ai에서 답변 받기 →</button>
       </div>
-      <div class="ai-loading" id="ai-loading">
-        <div class="spinner"></div> 답변 생성 중...
-      </div>
-      <div class="ai-resp" id="ai-resp"></div>
-      <div class="qa-history" id="qa-history"></div>
     </div>
 
     <!-- LOG -->
@@ -493,7 +489,6 @@ function isRecGame(g){ return g.rec === true; }
 // ── 상태 ────────────────────────────────────────────────────
 let curFilter='all';
 let curGame=null;
-const qaHistory={};
 
 // 렌더 그리드
 function renderGrid(list){
@@ -612,15 +607,10 @@ function openModal(idx){
 
   // QA 초기화
   document.getElementById('qa-input').value='';
-  document.getElementById('ai-resp').style.display='none';
-  document.getElementById('ai-resp').textContent='';
-  document.getElementById('ai-loading').classList.remove('show');
-  // 룰북 있으면 힌트 업데이트
   const qaHint = document.getElementById('qa-hint-text');
-  if(qaHint) qaHint.textContent = rulebookUrl
-    ? '📄 룰북 PDF를 참고해서 답변합니다'
-    : 'Claude가 알고 있는 지식으로 답변합니다';
-  renderQAHistory(g.name);
+  if(qaHint) qaHint.textContent = curGame.rulebook
+    ? '📄 룰북이 등록된 게임입니다 — Claude.ai에서 참고해 답변받으세요'
+    : '';
 
   // 로그
   document.getElementById('log-date').value=new Date().toISOString().split('T')[0];
@@ -700,48 +690,33 @@ async function toggleRec(){
   }catch(e){ showToast('저장 실패','err'); }
 }
 
-async function askAI(){
+function askAI(){
   const q=document.getElementById('qa-input').value.trim();
-  if(!q||!curGame) return;
-  const loading=document.getElementById('ai-loading');
-  const resp=document.getElementById('ai-resp');
-  loading.classList.add('show');
-  resp.style.display='none';
-
-  try{
-    const rulebookUrl = curGame.rulebook || '';
-    const r = await fetch(API, {
-      method: 'POST',
-      body: JSON.stringify({
-        action:   'askAI',
-        gameName: curGame.name,
-        gameDesc: curGame.desc || '',
-        rulebook: rulebookUrl,
-        question: q,
-      })
-    });
-    const data = await r.json();
-    const text = data.answer || '답변을 받아오지 못했습니다.';
-    resp.textContent = text;
-    resp.style.display = 'block';
-    if(!qaHistory[curGame.name]) qaHistory[curGame.name]=[];
-    qaHistory[curGame.name].unshift({q, a:text});
-    if(qaHistory[curGame.name].length>10) qaHistory[curGame.name].pop();
-    document.getElementById('qa-input').value='';
-    renderQAHistory(curGame.name);
-  }catch(e){
-    resp.textContent='오류가 발생했습니다. 다시 시도해주세요.';
-    resp.style.display='block';
+  if(!q||!curGame){
+    showToast('질문을 입력해주세요','err');
+    return;
   }
-  loading.classList.remove('show');
-}
 
-function renderQAHistory(name){
-  const list=qaHistory[name]||[];
-  const el=document.getElementById('qa-history');
-  if(!list.length){el.innerHTML='';return;}
-  el.innerHTML='<div class="sec-label" style="margin-top:1.25rem;margin-bottom:8px">이전 Q&A</div>'+
-    list.map(item=>`<div class="qa-item"><div class="qa-q">Q. ${item.q}</div><div class="qa-a">${item.a}</div></div>`).join('');
+  // Claude.ai에 전달할 프롬프트 구성
+  const gameInfo = [
+    `보드게임: ${curGame.name}`,
+    curGame.desc ? `소개: ${curGame.desc}` : '',
+    curGame.weight ? `난이도(BGG Weight): ${Number(curGame.weight).toFixed(2)}` : '',
+    curGame.players ? `플레이어: ${curGame.players}인` : '',
+    curGame.theme ? `테마: ${curGame.theme}` : '',
+  ].filter(Boolean).join('\n');
+
+  const prompt = `다음 보드게임에 대해 질문이 있습니다.
+
+${gameInfo}
+
+질문: ${q}
+
+위 게임의 룰과 전략에 대해 한국어로 친절하게 답변해주세요.`;
+
+  // claude.ai 새 대화로 연결 (텍스트 프리필)
+  const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
+  window.open(claudeUrl, '_blank');
 }
 
 // 플레이 기록
