@@ -172,7 +172,41 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
 .toast.ok{border-color:var(--green);color:#6ec485}
 .toast.err{border-color:var(--red);color:#c46060}
 
-@media(max-width:600px){
+/* NAV TABS */
+.nav-tabs{display:flex;gap:0;margin-bottom:1.5rem;border-bottom:1px solid var(--border)}
+.nav-tab{padding:10px 24px;font-size:14px;font-family:'Noto Sans KR',sans-serif;border:none;background:none;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .2s;font-weight:500}
+.nav-tab:hover{color:var(--text2)}
+.nav-tab.on{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* VOTE */
+.vote-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.vote-setup-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.vote-game-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:280px;overflow-y:auto;margin-top:8px}
+.pick-card{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;cursor:pointer;font-size:12px;color:var(--text2);background:var(--bg3);transition:all .15s;display:flex;align-items:center;gap:6px}
+.pick-card:hover{border-color:var(--border2)}
+.pick-card.selected{border-color:var(--gold-dim);background:rgba(201,168,76,.12);color:var(--gold)}
+.pick-card .pick-emoji{font-size:16px}
+
+.vote-candidates{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem}
+.vote-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .2s}
+.vote-card-thumb{height:120px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:40px;opacity:.5;position:relative;overflow:hidden}
+.vote-card-thumb img{width:100%;height:100%;object-fit:cover;opacity:1}
+.vote-card-body{padding:10px 12px}
+.vote-card-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px}
+.vote-bar-wrap{background:var(--bg3);border-radius:4px;height:6px;margin-bottom:6px;overflow:hidden}
+.vote-bar{height:100%;background:var(--gold-dim);border-radius:4px;transition:width .4s}
+.vote-count{font-size:11px;color:var(--text3);margin-bottom:8px}
+.vote-voters{font-size:11px;color:var(--text3);margin-bottom:8px}
+.vote-btn{width:100%;padding:7px;border:1px solid var(--border2);border-radius:8px;background:transparent;color:var(--text2);font-family:'Noto Sans KR',sans-serif;font-size:12px;cursor:pointer;transition:all .2s}
+.vote-btn:hover{border-color:var(--gold-dim);color:var(--gold)}
+.vote-btn.voted{border-color:var(--gold-dim);background:rgba(201,168,76,.15);color:var(--gold)}
+.vote-section-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px}
+.vote-voter-input-wrap{display:flex;gap:8px;margin-bottom:1.5rem}
+.vote-voter-input-wrap input{flex:1;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none}
+.vote-voter-input-wrap input:focus{border-color:var(--gold-dim)}
+.vote-empty{text-align:center;padding:4rem;color:var(--text3);font-size:14px}
+.vote-reset-row{display:flex;justify-content:flex-end;margin-bottom:1rem}
+.winner-badge{position:absolute;top:6px;left:6px;background:var(--gold);color:#1a1200;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
   .grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
   .modal-top{flex-direction:row}
   .log-form{grid-template-columns:1fr}
@@ -183,7 +217,15 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
 <body>
 <div class="wrap">
 
-  <header class="site-header">
+  <!-- 네비게이션 탭 -->
+  <div class="nav-tabs">
+    <button class="nav-tab on" onclick="switchView('collection')">🎲 컬렉션</button>
+    <button class="nav-tab" onclick="switchView('vote')">🗳️ 이번 주 투표</button>
+  </div>
+
+  <!-- 컬렉션 뷰 -->
+  <div id="view-collection">
+    <header class="site-header">
     <div class="logo">
       <div class="logo-title">🎲 보드게임 컬렉션</div>
       <div class="logo-sub">My Board Game Hub</div>
@@ -221,6 +263,34 @@ select{padding:9px 12px;background:var(--bg2);border:1px solid var(--border);bor
   </div>
 
   <div class="grid" id="grid"></div>
+  </div><!-- /view-collection -->
+
+  <!-- 투표 뷰 -->
+  <div id="view-vote" style="display:none">
+    <div class="vote-header">
+      <div>
+        <div class="logo-title">🗳️ 이번 주 게임 투표</div>
+        <div class="logo-sub" id="vote-week-label"></div>
+      </div>
+      <button class="btn btn-gold" onclick="openVoteSetup()">+ 투표 만들기</button>
+    </div>
+
+    <!-- 투표 생성 패널 -->
+    <div id="vote-setup" style="display:none" class="vote-setup-box">
+      <div class="sec-label">투표할 게임 선택 (최대 6개)</div>
+      <div class="vote-game-picker" id="vote-picker"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input type="text" id="vote-voter-name" placeholder="투표자 이름" style="flex:1;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none">
+        <button class="btn btn-gold" onclick="createVote()">투표 시작</button>
+        <button class="btn" onclick="closeVoteSetup()">취소</button>
+      </div>
+    </div>
+
+    <!-- 현재 투표 현황 -->
+    <div id="vote-board">
+      <div class="log-loading">투표 불러오는 중...</div>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -438,17 +508,24 @@ let curGame=null;
 const qaHistory={};
 let gameDataCache={}; // BGG 이미지+weight+인원 캐시 (Sheets에서 로드)
 
-// Sheets에서 게임 데이터(이미지URL, weight, 인원수) 로드
+// Sheets에서 게임 데이터 로드 → 완료 후 그리드 재렌더링 (추천 상태 반영)
 async function loadGameData(){
   try{
     const res=await fetch(`${API}?action=getGameData`);
     const data=await res.json();
     gameDataCache=data.games||{};
-    // 로드된 이미지를 그리드에 즉시 주입
-    Object.entries(gameDataCache).forEach(([name,d])=>{
-      if(d.img) injectThumb(name, d.img);
-    });
+    // 로드 완료 후 그리드 재렌더 (추천 상태 + 이미지 반영)
+    applyFilter();
+    // 헤더 추천 카운트 업데이트
+    const recCount=GAMES.filter(g=>isRecGame(g)).length;
+    document.getElementById('rec-n').textContent=recCount;
   }catch(e){ console.log('게임 데이터 로드 실패:', e); }
+}
+
+// 게임의 실제 추천 상태 (Sheets 우선, 없으면 하드코딩)
+function isRecGame(g){
+  const d=gameDataCache[g.name];
+  return d&&d.rec!==undefined ? d.rec : g.rec;
 }
 
 // 렌더 그리드
@@ -458,12 +535,13 @@ function renderGrid(list){
   g.innerHTML=list.map(game=>{
     const d=diffInfo(game.diff);
     const em=emoji(game);
+    const rec=isRecGame(game);
     return `<div class="card" onclick="openModal(${game.n-1})">
       <div class="thumb" id="th-${game.n}">
         <div class="thumb-num">${game.n}</div>
         <div class="loading-thumb" id="tl-${game.n}"><div class="spinner"></div></div>
         <span class="thumb-emoji" id="te-${game.n}">${em}</span>
-        ${game.rec?'<div class="star-badge">추천</div>':''}
+        ${rec?'<div class="star-badge">추천</div>':''}
       </div>
       <div class="card-body">
         <div class="card-name">${game.name}</div>
@@ -488,7 +566,7 @@ function applyFilter(){
   const q=document.getElementById('search').value.toLowerCase();
   const sort=document.getElementById('sort-sel').value;
   let list=GAMES.filter(g=>{
-    if(curFilter==='rec'&&!g.rec) return false;
+    if(curFilter==='rec'&&!isRecGame(g)) return false;
     if(curFilter==='easy'&&(g.diff===0||g.diff>=2)) return false;
     if(curFilter==='hard'&&(g.diff===0||g.diff<3)) return false;
     if(curFilter==='solo'&&!g.solo) return false;
@@ -877,6 +955,167 @@ async function addLog(){
       st.innerHTML='<span class="sync-err">⚠ 저장 실패</span>';
     }
   }catch(e){st.innerHTML='<span class="sync-err">⚠ 네트워크 오류</span>';}
+}
+
+// 뷰 전환 (컬렉션 ↔ 투표)
+function switchView(view){
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('on',['collection','vote'][i]===view));
+  document.getElementById('view-collection').style.display=view==='collection'?'':'none';
+  document.getElementById('view-vote').style.display=view==='vote'?'':'none';
+  if(view==='vote') loadVote();
+}
+
+// ── 투표 ────────────────────────────────────────────────────
+let voteData={candidates:[],votes:{}};
+let myVoterName=localStorage.getItem('voterName')||'';
+let selectedGames=new Set();
+
+function getWeekLabel(){
+  const now=new Date();
+  const day=now.getDay();
+  const mon=new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  const fmt=d=>`${d.getMonth()+1}/${d.getDate()}`;
+  return `${now.getFullYear()}년 ${fmt(mon)} ~ ${fmt(sun)}`;
+}
+
+async function loadVote(){
+  document.getElementById('vote-week-label').textContent=getWeekLabel();
+  try{
+    const res=await fetch(`${API}?action=getVote`);
+    const data=await res.json();
+    voteData=data||{candidates:[],votes:{}};
+    renderVoteBoard();
+  }catch(e){
+    document.getElementById('vote-board').innerHTML='<div class="vote-empty">투표 데이터를 불러오지 못했습니다</div>';
+  }
+}
+
+function renderVoteBoard(){
+  const board=document.getElementById('vote-board');
+  const {candidates,votes}=voteData;
+  if(!candidates||!candidates.length){
+    board.innerHTML='<div class="vote-empty">아직 투표가 없어요 😊<br><br>"+ 투표 만들기"로 이번 주 게임을 골라보세요!</div>';
+    return;
+  }
+
+  // 각 게임 총 득표수
+  const totals={};
+  candidates.forEach(c=>totals[c]=0);
+  Object.values(votes).forEach(arr=>arr.forEach(c=>{if(totals[c]!==undefined)totals[c]++;}));
+  const maxVotes=Math.max(1,...Object.values(totals));
+  const totalVoters=Object.keys(votes).length;
+
+  // 내 투표 목록
+  const myVotes=myVoterName&&votes[myVoterName]?votes[myVoterName]:[];
+
+  board.innerHTML=`
+    <div class="vote-voter-input-wrap">
+      <input type="text" id="voter-name-input" placeholder="내 이름 입력 후 투표하세요" value="${myVoterName}" oninput="myVoterName=this.value;localStorage.setItem('voterName',this.value)">
+    </div>
+    <div class="vote-section-label">후보 게임 · 총 ${totalVoters}명 참여</div>
+    <div class="vote-candidates" id="vote-candidates"></div>
+    <div class="vote-reset-row">
+      <button class="btn" onclick="resetVote()" style="font-size:12px;color:var(--text3)">🗑 투표 초기화</button>
+    </div>
+  `;
+
+  const cEl=document.getElementById('vote-candidates');
+  cEl.innerHTML=candidates.map(name=>{
+    const game=GAMES.find(g=>g.name===name);
+    const cnt=totals[name]||0;
+    const pct=Math.round((cnt/maxVotes)*100);
+    const imgUrl=gameDataCache[name]?.img||thumbCache[name]||'';
+    const voted=myVotes.includes(name);
+    // 투표자 이름 목록
+    const voterList=Object.entries(votes).filter(([,arr])=>arr.includes(name)).map(([v])=>v).join(', ');
+    return `
+    <div class="vote-card">
+      <div class="vote-card-thumb">
+        ${imgUrl?`<img src="${imgUrl}" alt="${name}">`:`<span>${game?emoji(game):'🎲'}</span>`}
+        ${cnt===maxVotes&&cnt>0?'<div class="winner-badge">👑 1위</div>':''}
+      </div>
+      <div class="vote-card-body">
+        <div class="vote-card-name">${name}</div>
+        <div class="vote-bar-wrap"><div class="vote-bar" style="width:${pct}%"></div></div>
+        <div class="vote-count">${cnt}표 (${pct}%)</div>
+        ${voterList?`<div class="vote-voters">👤 ${voterList}</div>`:''}
+        <button class="vote-btn${voted?' voted':''}" onclick="castVote('${name}')">
+          ${voted?'✓ 투표함':'투표하기'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function castVote(gameName){
+  const name=(document.getElementById('voter-name-input')?.value||myVoterName).trim();
+  if(!name){showToast('이름을 먼저 입력해주세요','err');return;}
+  myVoterName=name;
+  localStorage.setItem('voterName',name);
+
+  // 로컬 즉시 반영
+  if(!voteData.votes[name]) voteData.votes[name]=[];
+  const idx=voteData.votes[name].indexOf(gameName);
+  if(idx>=0) voteData.votes[name].splice(idx,1); // 취소
+  else voteData.votes[name].push(gameName);       // 추가
+  renderVoteBoard();
+
+  // Sheets 저장
+  try{
+    await fetch(API,{method:'POST',body:JSON.stringify({action:'castVote',voter:name,game:gameName})});
+  }catch(e){showToast('저장 실패','err');}
+}
+
+// 투표 생성 UI
+function openVoteSetup(){
+  document.getElementById('vote-setup').style.display='block';
+  selectedGames.clear();
+  const picker=document.getElementById('vote-picker');
+  picker.innerHTML=GAMES.map(g=>`
+    <div class="pick-card" id="pick-${g.n}" onclick="togglePick('${g.name}',${g.n})">
+      <span class="pick-emoji">${emoji(g)}</span>
+      <span>${g.name}</span>
+    </div>`).join('');
+}
+
+function closeVoteSetup(){
+  document.getElementById('vote-setup').style.display='none';
+}
+
+function togglePick(name,n){
+  const el=document.getElementById('pick-'+n);
+  if(selectedGames.has(name)){
+    selectedGames.delete(name);
+    el.classList.remove('selected');
+  } else {
+    if(selectedGames.size>=6){showToast('최대 6개까지 선택할 수 있어요','err');return;}
+    selectedGames.add(name);
+    el.classList.add('selected');
+  }
+}
+
+async function createVote(){
+  if(selectedGames.size<2){showToast('2개 이상 선택해주세요','err');return;}
+  const candidates=[...selectedGames];
+  try{
+    const res=await fetch(API,{method:'POST',body:JSON.stringify({action:'createVote',candidates})});
+    const data=await res.json();
+    if(data.ok){
+      closeVoteSetup();
+      await loadVote();
+      showToast('투표가 시작됐어요! 🎲','ok');
+    }
+  }catch(e){showToast('오류가 발생했어요','err');}
+}
+
+async function resetVote(){
+  if(!confirm('이번 주 투표를 초기화할까요?')) return;
+  try{
+    await fetch(API,{method:'POST',body:JSON.stringify({action:'resetVote'})});
+    await loadVote();
+    showToast('투표가 초기화됐어요','ok');
+  }catch(e){showToast('오류가 발생했어요','err');}
 }
 
 // 토스트
